@@ -85,7 +85,7 @@ void testBasicOperations()
         root = insert(root, create_int(values[i]), int_compare);
 
     validateAVL(root, "AVL tree validity after insertion");
-    ASSERT(getTreeSize(root) == n, "Tree size correct");
+    ASSERT(getSize(root) == n, "Tree size correct");
 
     // demonstrate tree visualization
     printf("   Tree structure:\n");
@@ -102,7 +102,7 @@ void testBasicOperations()
     root = delete(root, &delete_val, int_compare, int_free);
     validateAVL(root, "AVL tree validity after deletion");
     ASSERT(search(root, &delete_val, int_compare) == NULL, "Search verification after deletion");
-    ASSERT(getTreeSize(root) == n - 1, "Tree size correct after deletion");
+    ASSERT(getSize(root) == n - 1, "Tree size correct after deletion");
 
     freeAVLTree(root, int_free);
 }
@@ -141,13 +141,13 @@ void testEdgeCases()
     AVLNode *nullRoot = NULL;
     int search_val = 10;
     ASSERT(search(nullRoot, &search_val, int_compare) == NULL, "NULL tree search");
-    ASSERT(getTreeSize(nullRoot) == 0, "NULL tree size");
+    ASSERT(getSize(nullRoot) == 0, "NULL tree size");
     ASSERT(isValidAVL(nullRoot) == true, "NULL tree AVL validity");
 
     // single node tree
     AVLNode *singleRoot = insert(NULL, create_int(42), int_compare);
     ASSERT(*(int *)singleRoot->data == 42, "Single node tree creation");
-    ASSERT(getTreeSize(singleRoot) == 1, "Single node tree size");
+    ASSERT(getSize(singleRoot) == 1, "Single node tree size");
     validateAVL(singleRoot, "Single node tree AVL validity");
 
     // duplicate insertion
@@ -155,7 +155,7 @@ void testEdgeCases()
     int *dup_val = create_int(42);
     singleRoot = insert(singleRoot, dup_val, int_compare);
     ASSERT(beforeDup == singleRoot, "Duplicate insertion does not change tree structure");
-    ASSERT(getTreeSize(singleRoot) == 1, "Size unchanged after duplicate insertion");
+    ASSERT(getSize(singleRoot) == 1, "Size unchanged after duplicate insertion");
 
     free(dup_val);
 
@@ -174,7 +174,7 @@ void testStress()
     for (int i = 1; i <= STRESS_TEST_SIZE; i++)
         root = insert(root, create_int(i), int_compare);
 
-    ASSERT(getTreeSize(root) == STRESS_TEST_SIZE, "Tree size correct after large insertion");
+    ASSERT(getSize(root) == STRESS_TEST_SIZE, "Tree size correct after large insertion");
     validateAVL(root, "AVL validity after large insertion");
 
     // delete all odd numbers
@@ -190,7 +190,7 @@ void testStress()
     }
 
     int expectedSize = STRESS_TEST_SIZE - deletedCount;
-    int actualSize = getTreeSize(root);
+    int actualSize = getSize(root);
     printf("   Deleted %d nodes, expected size: %d, actual size: %d\n",
            deletedCount, expectedSize, actualSize);
     ASSERT(actualSize == expectedSize, "Tree size correct after large deletion");
@@ -216,7 +216,7 @@ void testUtilities()
 
     AVLNode *root = createAVLFromArray(arr, size, int_compare);
     ASSERT(root != NULL, "Create tree from array");
-    ASSERT(getTreeSize(root) == size, "Tree size correct from array creation");
+    ASSERT(getSize(root) == size, "Tree size correct from array creation");
     validateAVL(root, "AVL validity of tree created from array");
 
     // test minimum and maximum values

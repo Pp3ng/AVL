@@ -6,6 +6,12 @@ int getHeight(const AVLNode *node)
     return node ? node->height : 0;
 }
 
+// get node size (number of nodes in subtree)
+int getSize(const AVLNode *node)
+{
+    return node ? node->size : 0;
+}
+
 // get balance factor
 int getBalance(const AVLNode *node)
 {
@@ -18,6 +24,14 @@ void updateHeight(AVLNode *node)
     if (!node)
         return;
     node->height = 1 + MAX(getHeight(node->left), getHeight(node->right));
+}
+
+// update node size
+void updateSize(AVLNode *node)
+{
+    if (!node)
+        return;
+    node->size = 1 + getSize(node->left) + getSize(node->right);
 }
 
 // create a new AVL node
@@ -33,6 +47,7 @@ AVLNode *createNode(void *data)
     node->data = data;
     node->left = node->right = NULL;
     node->height = 1;
+    node->size = 1;
     return node;
 }
 
@@ -48,6 +63,8 @@ AVLNode *rotateRight(AVLNode *node)
 
     updateHeight(node);
     updateHeight(pivot);
+    updateSize(node);
+    updateSize(pivot);
     return pivot;
 }
 
@@ -63,6 +80,8 @@ AVLNode *rotateLeft(AVLNode *node)
 
     updateHeight(node);
     updateHeight(pivot);
+    updateSize(node);
+    updateSize(pivot);
     return pivot;
 }
 
@@ -72,32 +91,38 @@ AVLNode *rebalance(AVLNode *node)
     if (!node)
         return node;
 
+    // first update height and size
     updateHeight(node);
+    updateSize(node);
+
     int balance = getBalance(node);
 
-    // left-left case
-    if (balance > 1 && getBalance(node->left) >= 0)
-        return rotateRight(node);
-
-    // left-right case
-    if (balance > 1 && getBalance(node->left) < 0)
+    // case 1: left subtree is too heavy (left-left or left-right)
+    if (balance > AVL_MAX_BALANCE)
     {
-        node->left = rotateLeft(node->left);
+        int leftBalance = getBalance(node->left);
+
+        if (leftBalance < 0)
+            // left-right case: first rotate left child left, then rotate root right
+            node->left = rotateLeft(node->left);
+        // left-left case (or converted from left-right): rotate root right
         return rotateRight(node);
     }
 
-    // right-right case
-    if (balance < -1 && getBalance(node->right) <= 0)
-        return rotateLeft(node);
-
-    // right-left case
-    if (balance < -1 && getBalance(node->right) > 0)
+    // case 2: right subtree is too heavy (right-right or right-left)
+    if (balance < -AVL_MAX_BALANCE)
     {
-        node->right = rotateRight(node->right);
+        int rightBalance = getBalance(node->right);
+
+        if (rightBalance > 0)
+            // right-left case: first rotate right child right, then rotate root left
+            node->right = rotateRight(node->right);
+        // right-right case (or converted from right-left): rotate root left
         return rotateLeft(node);
     }
 
-    return node; // no rotation needed
+    // tree is already balanced
+    return node;
 }
 
 // insert and keep balance
@@ -121,16 +146,18 @@ AVLNode *insert(AVLNode *node, void *data, compare_func_t compare)
 // search for a key in the AVL tree
 AVLNode *search(AVLNode *node, void *data, compare_func_t compare)
 {
-    if (!node)
-        return NULL;
+    while (node)
+    {
+        int cmp = compare(data, node->data);
+        if (cmp == 0)
+            return node;
+        else if (cmp < 0)
+            node = node->left;
+        else
+            node = node->right;
+    }
 
-    int cmp = compare(data, node->data);
-    if (cmp == 0)
-        return node;
-    else if (cmp < 0)
-        return search(node->left, data, compare);
-    else
-        return search(node->right, data, compare);
+    return NULL; // not found
 }
 
 // find minimum node in a subtree
@@ -218,20 +245,35 @@ void printAVL(const AVLNode *root, const char *prefix, bool isLast, print_func_t
     if (!root)
         return;
 
+    // print current node
     printf("%s%s", prefix, isLast ? "└── " : "├── ");
     print_data(root->data);
-    printf("[h:%d,b:%+d]\n", root->height, getBalance(root));
+    printf(" [h:%d,b:%+d]\n", root->height, getBalance(root));
 
-    if (root->left || root->right)
+    // early return if no children
+    if (!root->left && !root->right)
+        return;
+
+    // create new prefix with appropriate suffix
+    const char *suffix = isLast ? "    " : "│   ";
+    size_t newLen = strlen(prefix) + strlen(suffix) + 1;
+    char *newPrefix = malloc(newLen);
+
+    if (!newPrefix)
     {
-        char newPrefix[256];
-        snprintf(newPrefix, sizeof(newPrefix), "%s%s", prefix, isLast ? "    " : "│   ");
-
-        if (root->right)
-            printAVL(root->right, newPrefix, root->left == NULL, print_data);
-        if (root->left)
-            printAVL(root->left, newPrefix, true, print_data);
+        perror("Failed to allocate memory for prefix");
+        return;
     }
+
+    sprintf(newPrefix, "%s%s", prefix, suffix);
+
+    // print children nodes
+    if (root->right)
+        printAVL(root->right, newPrefix, !root->left, print_data);
+    if (root->left)
+        printAVL(root->left, newPrefix, true, print_data);
+
+    free(newPrefix);
 }
 
 // inorder traversal
@@ -268,15 +310,6 @@ void postorderTraversal(const AVLNode *root, print_func_t print_data)
     postorderTraversal(root->right, print_data);
     print_data(root->data);
     printf(" ");
-}
-
-// get tree size (number of nodes)
-int getTreeSize(const AVLNode *root)
-{
-    if (!root)
-        return 0;
-
-    return 1 + getTreeSize(root->left) + getTreeSize(root->right);
 }
 
 // find maximum node in a subtree
@@ -326,7 +359,7 @@ bool isValidAVL(const AVLNode *root)
 
     // check balance factor
     int balance = getBalance(root);
-    if (ABS(balance) > 1)
+    if (ABS(balance) > AVL_MAX_BALANCE)
         return false;
 
     // check height consistency

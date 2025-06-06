@@ -2,8 +2,6 @@
 
 An **AVL (Adelson-Velsky and Landis) Tree** implementation in C that performs self-balancing operations to maintain the AVL property, ensuring O(log n) time complexity for insertion, deletion, search and traversal operations.
 
-- **Complete API**: Full set of utility functions for tree manipulation and validation
-
 ## Usage
 
 This AVL tree implementation is **fully generic** that can store any data type. You need to provide three function pointers for proper operation:
@@ -65,7 +63,8 @@ int main() {
     printf("\n");
 
     // get tree information
-    printf("Tree size: %d nodes\n", getTreeSize(root));
+    printf("Tree size: %d nodes\n", getSize(root));
+    printf("Tree height: %d\n", getHeight(root));
 
     // find minimum and maximum values
     AVLNode *minNode = findMin(root);
@@ -97,10 +96,10 @@ typedef struct {
     int age;
 } Person;
 
-int person_compare(const void *a, const void *b) {
-    Person *pa = (Person*)a;
-    Person *pb = (Person*)b;
-    return strcmp(pa->name, pb->name);
+int person_compare(const void *a, const void *b)
+{
+    const Person *pa = (const Person *)a, *pb = (const Person *)b;
+    return (pa->age > pb->age) - (pa->age < pb->age);
 }
 
 void person_print(const void *data) {
@@ -150,7 +149,7 @@ people_tree = insert(people_tree, create_person("Bob", 30), person_compare);
 | `findMin(node)`                              | Find minimum value in subtree | O(log n)        |
 | `findMax(node)`                              | Find maximum value in subtree | O(log n)        |
 | `createAVLFromArray(arr, size, compare)`     | Build AVL tree from array     | O(n log n)      |
-| `getTreeSize(root)`                          | Count total number of nodes   | O(n)            |
+| `getSize(root)`                              | Count total number of nodes   | O(1)            |
 | `printAVL(root, prefix, isLast, print_data)` | Visualize tree structure      | O(n)            |
 | `freeAVLTree(root, free_data)`               | Free all nodes and memory     | O(n)            |
 
@@ -171,13 +170,14 @@ These functions are typically used internally but are available for advanced use
 | `getHeight(node)`    | Get height of a node              | O(1)            |
 | `getBalance(node)`   | Get balance factor of a node      | O(1)            |
 | `updateHeight(node)` | Update height after modifications | O(1)            |
+| `updateSize(node)`   | Update size after modifications   | O(1)            |
 | `rotateRight(node)`  | Perform right rotation            | O(1)            |
 | `rotateLeft(node)`   | Perform left rotation             | O(1)            |
 | `rebalance(node)`    | Rebalance tree at given node      | O(1)            |
 
 ## Tree Visualization
 
-The `printAVL()` function provides a visual representation of the tree structure:
+The `printAVL()` function provides a visual representation of the tree structure with height and balance factor information:
 
 ```
 └── 30[h:3,b:-1]
@@ -187,6 +187,9 @@ The `printAVL()` function provides a visual representation of the tree structure
         ├── 25[h:1,b:0]
         └── 10[h:1,b:0]
 ```
+
+- `h:` shows the height of each node
+- `b:` shows the balance factor (left height - right height)
 
 ## Array to Tree Construction
 
@@ -275,6 +278,12 @@ make debug
 # Run tests
 make run
 ```
+
+## TODO
+
+- [ ] more query functions (e.g., range queries)
+- [ ] more utility functions (e.g., tree serialization)
+- [ ] rank operations (e.g., find k-th smallest/largest)
 
 ## Acknowledgments
 

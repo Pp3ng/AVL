@@ -24,8 +24,6 @@ clean:
 	rm -f $(OBJECTS) $(TARGET)
 
 # Debug build with extra flags
-debug: CFLAGS += -DDEBUG -fsanitize=address
-debug: $(TARGET)
 
 # Phony targets
-.PHONY: all clean run debug
+.PHONY: all clean run
