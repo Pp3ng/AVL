@@ -228,6 +228,97 @@ void testUtilities()
     freeAVLTree(root, int_free);
 }
 
+// callback function for range query test
+typedef struct
+{
+    int *results;
+    int count;
+    int capacity;
+} RangeQueryResult;
+
+void rangeQueryCallback(const void *data, void *context)
+{
+    RangeQueryResult *result = (RangeQueryResult *)context;
+    if (result->count < result->capacity)
+    {
+        result->results[result->count] = *(const int *)data;
+        result->count++;
+    }
+}
+
+// advanced query functions test
+void testQueryFunctions()
+{
+    printf("\n=== Advanced Query Functions Test ===\n");
+
+    // create test tree with values: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+    AVLNode *root = NULL;
+    int values[] = {50, 30, 70, 20, 40, 60, 80, 10, 25, 35, 45, 55, 65, 75, 90, 100};
+    int size = sizeof(values) / sizeof(values[0]);
+
+    // create array of int pointers
+    void *arr[16];
+    for (int i = 0; i < size; i++)
+        arr[i] = create_int(values[i]);
+
+    root = createAVLFromArray(arr, size, int_compare);
+
+    printf("   Test tree created with %d nodes\n", getSize(root));
+    validateAVL(root, "AVL validity of test tree");
+
+    // test range query
+    printf("   Testing range query [30, 70]:\n");
+    RangeQueryResult rangeResult = {0};
+    rangeResult.results = malloc(16 * sizeof(int));
+    rangeResult.capacity = 16;
+    rangeResult.count = 0;
+
+    int minVal = 30, maxVal = 70;
+    rangeQuery(root, &minVal, &maxVal, int_compare, rangeQueryCallback, &rangeResult);
+
+    printf("   Found %d values in range [30, 70]: ", rangeResult.count);
+    for (int i = 0; i < rangeResult.count; i++)
+        printf("%d ", rangeResult.results[i]);
+    printf("\n");
+
+    ASSERT(rangeResult.count > 0, "Range query found values in range [30, 70]");
+    free(rangeResult.results);
+
+    // test count range
+    int countInRange = countRange(root, &minVal, &maxVal, int_compare);
+    printf("   Count in range [30, 70]: %d\n", countInRange);
+    ASSERT(countInRange == rangeResult.count, "Count range matches range query result");
+
+    // test kth smallest and largest
+    AVLNode *k3Smallest = findKthSmallest(root, 3);
+    AVLNode *k3Largest = findKthLargest(root, 3);
+    ASSERT(k3Smallest != NULL, "Find 3rd smallest element");
+    ASSERT(k3Largest != NULL, "Find 3rd largest element");
+    if (k3Smallest)
+        printf("   3rd smallest: %d\n", *(int *)k3Smallest->data);
+    if (k3Largest)
+        printf("   3rd largest: %d\n", *(int *)k3Largest->data);
+
+    // test rank
+    int search_val = 50;
+    int rank = getRank(root, &search_val, int_compare);
+    printf("   Rank of %d: %d\n", search_val, rank);
+    ASSERT(rank > 0, "Get rank of existing element");
+
+    // edge case tests
+    AVLNode *kthInvalid = findKthSmallest(root, 0);
+    ASSERT(kthInvalid == NULL, "Invalid k (0) returns NULL");
+
+    kthInvalid = findKthSmallest(root, getSize(root) + 1);
+    ASSERT(kthInvalid == NULL, "Invalid k (too large) returns NULL");
+
+    int nonExistentVal = 999;
+    int invalidRank = getRank(root, &nonExistentVal, int_compare);
+    ASSERT(invalidRank == 0, "Rank of non-existent element is 0");
+
+    freeAVLTree(root, int_free);
+}
+
 // print test result summary
 void printTestSummary()
 {
@@ -255,6 +346,7 @@ int main()
     testEdgeCases();
     testStress();
     testUtilities();
+    testQueryFunctions();
 
     // print result summary
     printTestSummary();

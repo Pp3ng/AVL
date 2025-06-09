@@ -124,6 +124,65 @@ people_tree = insert(people_tree, create_person("Alice", 25), person_compare);
 people_tree = insert(people_tree, create_person("Bob", 30), person_compare);
 ```
 
+### Range Queries
+
+Find all elements within a specified range:
+
+```c
+// callback function to collect results
+typedef struct {
+    int *results;
+    int count;
+    int capacity;
+} QueryResult;
+
+void collect_callback(const void *data, void *context) {
+    QueryResult *result = (QueryResult *)context;
+    if (result->count < result->capacity) {
+        result->results[result->count] = *(const int *)data;
+        result->count++;
+    }
+}
+
+// find all values between 20 and 60 (inclusive)
+QueryResult result = {0};
+result.results = malloc(100 * sizeof(int));
+result.capacity = 100;
+
+int min_val = 20, max_val = 60;
+rangeQuery(root, &min_val, &max_val, int_compare, collect_callback, &result);
+
+printf("Found %d values in range [20, 60]\n", result.count);
+free(result.results);
+
+// or just count elements in range
+int count = countRange(root, &min_val, &max_val, int_compare);
+printf("Count in range [20, 60]: %d\n", count);
+```
+
+### Order Statistics
+
+Find k-th smallest/largest elements:
+
+```c
+// find 3rd smallest element
+AVLNode *kth_smallest = findKthSmallest(root, 3);
+if (kth_smallest) {
+    printf("3rd smallest: %d\n", *(int*)kth_smallest->data);
+}
+
+// find 2nd largest element
+AVLNode *kth_largest = findKthLargest(root, 2);
+if (kth_largest) {
+    printf("2nd largest: %d\n", *(int*)kth_largest->data);
+}
+
+// get rank of an element (1-indexed)
+int search_value = 50;
+int rank = getRank(root, &search_value, int_compare);
+printf("Rank of %d: %d\n", search_value, rank);
+```
+
 ## API Reference
 
 ### Core Operations
@@ -159,6 +218,16 @@ people_tree = insert(people_tree, create_person("Bob", 30), person_compare);
 | ------------------------------------------- | ---------------------------- | --------------- |
 | `isValidBST(root, minVal, maxVal, compare)` | Validate binary search tree  | O(n)            |
 | `isValidAVL(root)`                          | Validate AVL tree properties | O(n)            |
+
+### Advanced Query Functions
+
+| Function                                                       | Purpose                             | Time Complexity |
+| -------------------------------------------------------------- | ----------------------------------- | --------------- |
+| `rangeQuery(root, minVal, maxVal, compare, callback, context)` | Execute callback for nodes in range | O(k + log n)    |
+| `countRange(root, minVal, maxVal, compare)`                    | Count nodes in range [min, max]     | O(k + log n)    |
+| `findKthSmallest(root, k)`                                     | Find k-th smallest element          | O(log n)        |
+| `findKthLargest(root, k)`                                      | Find k-th largest element           | O(log n)        |
+| `getRank(root, data, compare)`                                 | Get rank of element (1-indexed)     | O(log n)        |
 
 ### Low-Level Helper Functions
 
@@ -281,9 +350,9 @@ make run
 
 ## TODO
 
-- [ ] more query functions (e.g., range queries)
+- [x] more query functions (e.g., range queries)
 - [ ] more utility functions (e.g., tree serialization)
-- [ ] rank operations (e.g., find k-th smallest/largest)
+- [x] rank operations (e.g., find k-th smallest/largest)
 
 ## Acknowledgments
 

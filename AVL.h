@@ -60,4 +60,12 @@ void freeAVLTree(AVLNode *root, free_func_t free_data);
 bool isValidBST(const AVLNode *root, void *minVal, void *maxVal, compare_func_t compare);
 bool isValidAVL(const AVLNode *root);
 
+// query functions
+void rangeQuery(const AVLNode *root, void *minVal, void *maxVal, compare_func_t compare,
+                void (*callback)(const void *data, void *context), void *context);
+int countRange(const AVLNode *root, void *minVal, void *maxVal, compare_func_t compare);
+AVLNode *findKthSmallest(AVLNode *root, int k);
+AVLNode *findKthLargest(AVLNode *root, int k);
+int getRank(const AVLNode *root, void *data, compare_func_t compare);
+
 #endif // AVL_H

@@ -370,3 +370,105 @@ bool isValidAVL(const AVLNode *root)
     // recursively check subtrees
     return isValidAVL(root->left) && isValidAVL(root->right);
 }
+
+// range query: call callback for all nodes with data in [minVal, maxVal]
+void rangeQuery(const AVLNode *root, void *minVal, void *maxVal, compare_func_t compare,
+                void (*callback)(const void *data, void *context), void *context)
+{
+    if (!root)
+        return;
+
+    int cmpMin = minVal ? compare(root->data, minVal) : 1;
+    int cmpMax = maxVal ? compare(root->data, maxVal) : -1;
+
+    // if current node is greater than minVal, check left subtree
+    if (cmpMin > 0)
+        rangeQuery(root->left, minVal, maxVal, compare, callback, context);
+
+    // if current node is in range, process it
+    if (cmpMin >= 0 && cmpMax <= 0)
+        callback(root->data, context);
+
+    // if current node is less than maxVal, check right subtree
+    if (cmpMax < 0)
+        rangeQuery(root->right, minVal, maxVal, compare, callback, context);
+}
+
+// count nodes in range [minVal, maxVal]
+int countRange(const AVLNode *root, void *minVal, void *maxVal, compare_func_t compare)
+{
+    if (!root)
+        return 0;
+
+    int cmpMin = minVal ? compare(root->data, minVal) : 1;
+    int cmpMax = maxVal ? compare(root->data, maxVal) : -1;
+
+    int count = 0;
+
+    // if current node is greater than minVal, check left subtree
+    if (cmpMin > 0)
+        count += countRange(root->left, minVal, maxVal, compare);
+
+    // if current node is in range, count it
+    if (cmpMin >= 0 && cmpMax <= 0)
+        count++;
+
+    // if current node is less than maxVal, check right subtree
+    if (cmpMax < 0)
+        count += countRange(root->right, minVal, maxVal, compare);
+
+    return count;
+}
+
+// find kth smallest element (1-indexed)
+AVLNode *findKthSmallest(AVLNode *root, int k)
+{
+    if (!root || k <= 0)
+        return NULL;
+
+    int leftSize = getSize(root->left);
+
+    if (k == leftSize + 1)
+        return root;
+    else if (k <= leftSize)
+        return findKthSmallest(root->left, k);
+    else
+        return findKthSmallest(root->right, k - leftSize - 1);
+}
+
+// find kth largest element (1-indexed)
+AVLNode *findKthLargest(AVLNode *root, int k)
+{
+    if (!root || k <= 0)
+        return NULL;
+
+    int rightSize = getSize(root->right);
+
+    if (k == rightSize + 1)
+        return root;
+    else if (k <= rightSize)
+        return findKthLargest(root->right, k);
+    else
+        return findKthLargest(root->left, k - rightSize - 1);
+}
+
+// get rank (1-indexed position) of an element in AVL tree
+int getRank(const AVLNode *root, void *data, compare_func_t compare)
+{
+    if (!root)
+        return 0;
+
+    int cmp = compare(data, root->data);
+
+    if (cmp == 0)
+        // found the element: rank = size of left subtree + 1
+        return getSize(root->left) + 1;
+
+    if (cmp < 0)
+        // element is in left subtree
+        return getRank(root->left, data, compare);
+
+    // element is in right subtree
+    int rightRank = getRank(root->right, data, compare);
+    return rightRank > 0 ? getSize(root->left) + 1 + rightRank : 0;
+}
