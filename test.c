@@ -1,355 +1,304 @@
 #include "AVL.h"
 
-// functions to compare, print, and free int data
-int int_compare(const void *a, const void *b)
+// === Data Helper Functions ===
+static int int_compare(const void *a, const void *b)
 {
-    int ia = *(const int *)a;
-    int ib = *(const int *)b;
+    int ia = *(const int *)a, ib = *(const int *)b;
     return (ia > ib) - (ia < ib);
 }
 
-void int_print(const void *data)
-{
-    printf("%d", *(const int *)data);
-}
+static void int_free(void *data) { free(data); }
 
-void int_free(void *data)
-{
-    free(data);
-}
-
-int *create_int(int value)
+static int *create_int(int value)
 {
     int *ptr = malloc(sizeof(int));
     if (!ptr)
     {
-        perror("Failed to allocate memory for int");
+        perror("Memory allocation failed");
         exit(EXIT_FAILURE);
     }
     *ptr = value;
     return ptr;
 }
 
-// test result statistics
+// === Test Framework ===
 typedef struct
 {
-    int total_tests;
-    int passed_tests;
-    int failed_tests;
-} TestResult;
+    int total, passed, failed;
+} TestStats;
+static TestStats stats = {0};
 
-TestResult test_result = {0, 0, 0};
+#define TEST(name)                       \
+    static void test_##name(void);       \
+    static void run_##name(void)         \
+    {                                    \
+        printf("\n--- %s ---\n", #name); \
+        test_##name();                   \
+    }                                    \
+    static void test_##name(void)
 
-// self-validation macro
-#define ASSERT(condition, message)           \
-    do                                       \
-    {                                        \
-        test_result.total_tests++;           \
-        if (condition)                       \
-        {                                    \
-            test_result.passed_tests++;      \
-            printf("✓ PASS: %s\n", message); \
-        }                                    \
-        else                                 \
-        {                                    \
-            test_result.failed_tests++;      \
-            printf("✗ FAIL: %s\n", message); \
-        }                                    \
+#define ASSERT(condition, message)     \
+    do                                 \
+    {                                  \
+        stats.total++;                 \
+        if (condition)                 \
+        {                              \
+            stats.passed++;            \
+            printf("✓ %s\n", message); \
+        }                              \
+        else                           \
+        {                              \
+            stats.failed++;            \
+            printf("✗ %s\n", message); \
+        }                              \
     } while (0)
 
-// validate AVL tree integrity
-bool validateAVL(AVLNode *root, const char *context)
-{
-    bool isBST = isValidBST(root, NULL, NULL, int_compare);
-    bool isAVL = isValidAVL(root);
-    bool valid = isBST && isAVL;
+#define RUN_TEST(name) run_##name()
 
+// === Utility Functions ===
+static void **create_int_array(int values[], int size)
+{
+    void **arr = malloc(size * sizeof(void *));
+    if (!arr)
+    {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    for (int i = 0; i < size; i++)
+        arr[i] = create_int(values[i]);
+    return arr;
+}
+
+static bool validate_avl(AVLNode *root, const char *context)
+{
+    bool is_bst = isValidBST(root, NULL, NULL, int_compare);
+    bool is_avl = isValidAVL(root);
+    bool valid = is_bst && is_avl;
     ASSERT(valid, context);
     if (!valid)
-        printf("   BST valid: %s, AVL valid: %s\n",
-               isBST ? "Yes" : "No", isAVL ? "Yes" : "No");
+        printf("   BST: %s, AVL: %s\n", is_bst ? "✓" : "✗", is_avl ? "✓" : "✗");
     return valid;
 }
 
-// basic operations test
-void testBasicOperations()
+// === Core Operation Tests ===
+TEST(basic_operations)
 {
-    printf("\n=== Basic Operations Test ===\n");
     AVLNode *root = NULL;
-
-    // insert test
     int values[] = {50, 30, 70, 20, 40, 60, 80};
     int n = sizeof(values) / sizeof(values[0]);
 
+    // Insert operations
     for (int i = 0; i < n; i++)
         root = insert(root, create_int(values[i]), int_compare);
 
-    validateAVL(root, "AVL tree validity after insertion");
-    ASSERT(getSize(root) == n, "Tree size correct");
+    validate_avl(root, "Tree validity after insertions");
+    ASSERT(getSize(root) == n, "Tree size correct after insertions");
 
-    // demonstrate tree visualization
-    printf("   Tree structure:\n");
-    printAVL(root, "   ", true, int_print);
+    // Search operations
+    int existing = 50, non_existing = 100;
+    ASSERT(search(root, &existing, int_compare) != NULL, "Search existing value");
+    ASSERT(search(root, &non_existing, int_compare) == NULL, "Search non-existing value");
 
-    // search test
-    int search_val_50 = 50;
-    int search_val_100 = 100;
-    ASSERT(search(root, &search_val_50, int_compare) != NULL, "Search existing node (50)");
-    ASSERT(search(root, &search_val_100, int_compare) == NULL, "Search non-existing node (100)");
-
-    // delete test
+    // Delete operation
     int delete_val = 20;
     root = delete(root, &delete_val, int_compare, int_free);
-    validateAVL(root, "AVL tree validity after deletion");
-    ASSERT(search(root, &delete_val, int_compare) == NULL, "Search verification after deletion");
+    validate_avl(root, "Tree validity after deletion");
+    ASSERT(search(root, &delete_val, int_compare) == NULL, "Deleted value not found");
     ASSERT(getSize(root) == n - 1, "Tree size correct after deletion");
 
     freeAVLTree(root, int_free);
 }
 
-// rotation test
-void testRotations()
+TEST(rotations)
 {
-    printf("\n=== Rotation Test ===\n");
-
-    // test right rotation (LL case)
+    // LL rotation test
     AVLNode *root1 = NULL;
-    root1 = insert(root1, create_int(30), int_compare);
-    root1 = insert(root1, create_int(20), int_compare);
-    root1 = insert(root1, create_int(10), int_compare);
-    ASSERT(*(int *)root1->data == 20, "Root node correct after LL rotation");
-    validateAVL(root1, "AVL validity after LL rotation");
+    int ll_values[] = {30, 20, 10};
+    for (int i = 0; i < 3; i++)
+        root1 = insert(root1, create_int(ll_values[i]), int_compare);
+    ASSERT(*(int *)root1->data == 20, "LL rotation: correct root");
+    validate_avl(root1, "LL rotation: tree validity");
 
-    // test left rotation (RR case)
+    // RR rotation test
     AVLNode *root2 = NULL;
-    root2 = insert(root2, create_int(10), int_compare);
-    root2 = insert(root2, create_int(20), int_compare);
-    root2 = insert(root2, create_int(30), int_compare);
-    ASSERT(*(int *)root2->data == 20, "Root node correct after RR rotation");
-    validateAVL(root2, "AVL validity after RR rotation");
+    int rr_values[] = {10, 20, 30};
+    for (int i = 0; i < 3; i++)
+        root2 = insert(root2, create_int(rr_values[i]), int_compare);
+    ASSERT(*(int *)root2->data == 20, "RR rotation: correct root");
+    validate_avl(root2, "RR rotation: tree validity");
 
     freeAVLTree(root1, int_free);
     freeAVLTree(root2, int_free);
 }
 
-// edge cases test
-void testEdgeCases()
+TEST(edge_cases)
 {
-    printf("\n=== Edge Cases Test ===\n");
+    // Null tree operations
+    AVLNode *null_root = NULL;
+    int val = 10;
+    ASSERT(search(null_root, &val, int_compare) == NULL, "NULL tree search");
+    ASSERT(getSize(null_root) == 0, "NULL tree size");
+    ASSERT(isValidAVL(null_root) == true, "NULL tree validity");
 
-    // null tree operations
-    AVLNode *nullRoot = NULL;
-    int search_val = 10;
-    ASSERT(search(nullRoot, &search_val, int_compare) == NULL, "NULL tree search");
-    ASSERT(getSize(nullRoot) == 0, "NULL tree size");
-    ASSERT(isValidAVL(nullRoot) == true, "NULL tree AVL validity");
+    // Single node operations
+    AVLNode *single = insert(NULL, create_int(42), int_compare);
+    ASSERT(*(int *)single->data == 42, "Single node creation");
+    ASSERT(getSize(single) == 1, "Single node size");
+    validate_avl(single, "Single node validity");
 
-    // single node tree
-    AVLNode *singleRoot = insert(NULL, create_int(42), int_compare);
-    ASSERT(*(int *)singleRoot->data == 42, "Single node tree creation");
-    ASSERT(getSize(singleRoot) == 1, "Single node tree size");
-    validateAVL(singleRoot, "Single node tree AVL validity");
+    // Duplicate insertion test
+    AVLNode *before = single;
+    int *dup = create_int(42);
+    single = insert(single, dup, int_compare);
+    ASSERT(before == single, "Duplicate insertion: no structural change");
+    ASSERT(getSize(single) == 1, "Duplicate insertion: size unchanged");
+    free(dup);
 
-    // duplicate insertion
-    AVLNode *beforeDup = singleRoot;
-    int *dup_val = create_int(42);
-    singleRoot = insert(singleRoot, dup_val, int_compare);
-    ASSERT(beforeDup == singleRoot, "Duplicate insertion does not change tree structure");
-    ASSERT(getSize(singleRoot) == 1, "Size unchanged after duplicate insertion");
-
-    free(dup_val);
-
-    freeAVLTree(singleRoot, int_free);
+    freeAVLTree(single, int_free);
 }
 
-// stress test
-#define STRESS_TEST_SIZE 10000000
-
-void testStress()
+TEST(stress_performance)
 {
-    printf("\n=== Stress Test ===\n");
+    const int size = 10000000;
     AVLNode *root = NULL;
 
-    // insert 1-STRESS_TEST_SIZE sequentially
-    for (int i = 1; i <= STRESS_TEST_SIZE; i++)
+    // Sequential insertion test
+    for (int i = 1; i <= size; i++)
         root = insert(root, create_int(i), int_compare);
 
-    ASSERT(getSize(root) == STRESS_TEST_SIZE, "Tree size correct after large insertion");
-    validateAVL(root, "AVL validity after large insertion");
+    ASSERT(getSize(root) == size, "Stress test: correct size after insertions");
+    validate_avl(root, "Stress test: tree validity after insertions");
 
-    // delete all odd numbers
-    int deletedCount = 0;
-    for (int i = 1; i <= STRESS_TEST_SIZE; i += 2)
+    // Delete odd numbers
+    int deleted_count = 0;
+    for (int i = 1; i <= size; i += 2)
     {
-        AVLNode *before = search(root, &i, int_compare);
-        if (before)
+        if (search(root, &i, int_compare))
         {
             root = delete(root, &i, int_compare, int_free);
-            deletedCount++;
+            deleted_count++;
         }
     }
 
-    int expectedSize = STRESS_TEST_SIZE - deletedCount;
-    int actualSize = getSize(root);
-    printf("   Deleted %d nodes, expected size: %d, actual size: %d\n",
-           deletedCount, expectedSize, actualSize);
-    ASSERT(actualSize == expectedSize, "Tree size correct after large deletion");
-    validateAVL(root, "AVL validity after large deletion");
+    int expected_size = size - deleted_count;
+    ASSERT(getSize(root) == expected_size, "Stress test: correct size after deletions");
+    validate_avl(root, "Stress test: tree validity after deletions");
 
     freeAVLTree(root, int_free);
 }
 
-// utility functions test
-void testUtilities()
+TEST(utility_functions)
 {
-    printf("\n=== Utility Functions Test ===\n");
-
     int values[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     int size = sizeof(values) / sizeof(values[0]);
+    void **arr = create_int_array(values, size);
 
-    // create array of int pointers
-    void *arr[10];
-    for (int i = 0; i < size; i++)
-    {
-        arr[i] = create_int(values[i]);
-    }
-
+    // Array to tree conversion
     AVLNode *root = createAVLFromArray(arr, size, int_compare);
-    ASSERT(root != NULL, "Create tree from array");
-    ASSERT(getSize(root) == size, "Tree size correct from array creation");
-    validateAVL(root, "AVL validity of tree created from array");
+    ASSERT(root != NULL, "Array to tree conversion");
+    ASSERT(getSize(root) == size, "Array conversion: correct size");
+    validate_avl(root, "Array conversion: tree validity");
 
-    // test minimum and maximum values
-    AVLNode *minNode = findMin(root);
-    AVLNode *maxNode = findMax(root);
-    ASSERT(minNode && *(int *)minNode->data == 1, "Find minimum value");
-    ASSERT(maxNode && *(int *)maxNode->data == 10, "Find maximum value");
+    // Min/Max finding
+    AVLNode *min_node = findMin(root);
+    AVLNode *max_node = findMax(root);
+    ASSERT(min_node && *(int *)min_node->data == 1, "Find minimum value");
+    ASSERT(max_node && *(int *)max_node->data == 10, "Find maximum value");
 
     freeAVLTree(root, int_free);
+    free(arr);
 }
 
-// callback function for range query test
+// Range query callback structure
 typedef struct
 {
     int *results;
     int count;
     int capacity;
-} RangeQueryResult;
+} RangeResult;
 
-void rangeQueryCallback(const void *data, void *context)
+static void range_callback(const void *data, void *context)
 {
-    RangeQueryResult *result = (RangeQueryResult *)context;
+    RangeResult *result = (RangeResult *)context;
     if (result->count < result->capacity)
-    {
-        result->results[result->count] = *(const int *)data;
-        result->count++;
-    }
+        result->results[result->count++] = *(const int *)data;
 }
 
-// advanced query functions test
-void testQueryFunctions()
+TEST(queries)
 {
-    printf("\n=== Advanced Query Functions Test ===\n");
-
-    // create test tree with values: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
-    AVLNode *root = NULL;
     int values[] = {50, 30, 70, 20, 40, 60, 80, 10, 25, 35, 45, 55, 65, 75, 90, 100};
     int size = sizeof(values) / sizeof(values[0]);
+    void **arr = create_int_array(values, size);
+    AVLNode *root = createAVLFromArray(arr, size, int_compare);
 
-    // create array of int pointers
-    void *arr[16];
-    for (int i = 0; i < size; i++)
-        arr[i] = create_int(values[i]);
+    validate_avl(root, "Query test tree validity");
 
-    root = createAVLFromArray(arr, size, int_compare);
+    // Range query test
+    RangeResult range_result = {0};
+    range_result.results = malloc(16 * sizeof(int));
+    range_result.capacity = 16;
+    int min_val = 30, max_val = 70;
+    rangeQuery(root, &min_val, &max_val, int_compare, range_callback, &range_result);
 
-    printf("   Test tree created with %d nodes\n", getSize(root));
-    validateAVL(root, "AVL validity of test tree");
+    ASSERT(range_result.count > 0, "Range query found values");
 
-    // test range query
-    printf("   Testing range query [30, 70]:\n");
-    RangeQueryResult rangeResult = {0};
-    rangeResult.results = malloc(16 * sizeof(int));
-    rangeResult.capacity = 16;
-    rangeResult.count = 0;
+    // Count range test
+    int count = countRange(root, &min_val, &max_val, int_compare);
+    ASSERT(count == range_result.count, "Count range matches query result");
 
-    int minVal = 30, maxVal = 70;
-    rangeQuery(root, &minVal, &maxVal, int_compare, rangeQueryCallback, &rangeResult);
+    // Kth element tests
+    AVLNode *k3_smallest = findKthSmallest(root, 3);
+    AVLNode *k3_largest = findKthLargest(root, 3);
+    ASSERT(k3_smallest != NULL, "Find 3rd smallest element");
+    ASSERT(k3_largest != NULL, "Find 3rd largest element");
 
-    printf("   Found %d values in range [30, 70]: ", rangeResult.count);
-    for (int i = 0; i < rangeResult.count; i++)
-        printf("%d ", rangeResult.results[i]);
-    printf("\n");
-
-    ASSERT(rangeResult.count > 0, "Range query found values in range [30, 70]");
-    free(rangeResult.results);
-
-    // test count range
-    int countInRange = countRange(root, &minVal, &maxVal, int_compare);
-    printf("   Count in range [30, 70]: %d\n", countInRange);
-    ASSERT(countInRange == rangeResult.count, "Count range matches range query result");
-
-    // test kth smallest and largest
-    AVLNode *k3Smallest = findKthSmallest(root, 3);
-    AVLNode *k3Largest = findKthLargest(root, 3);
-    ASSERT(k3Smallest != NULL, "Find 3rd smallest element");
-    ASSERT(k3Largest != NULL, "Find 3rd largest element");
-    if (k3Smallest)
-        printf("   3rd smallest: %d\n", *(int *)k3Smallest->data);
-    if (k3Largest)
-        printf("   3rd largest: %d\n", *(int *)k3Largest->data);
-
-    // test rank
+    // Rank test
     int search_val = 50;
     int rank = getRank(root, &search_val, int_compare);
-    printf("   Rank of %d: %d\n", search_val, rank);
     ASSERT(rank > 0, "Get rank of existing element");
 
-    // edge case tests
-    AVLNode *kthInvalid = findKthSmallest(root, 0);
-    ASSERT(kthInvalid == NULL, "Invalid k (0) returns NULL");
+    // Edge cases
+    ASSERT(findKthSmallest(root, 0) == NULL, "Invalid k (0) returns NULL");
+    ASSERT(findKthSmallest(root, size + 1) == NULL, "Invalid k (too large) returns NULL");
 
-    kthInvalid = findKthSmallest(root, getSize(root) + 1);
-    ASSERT(kthInvalid == NULL, "Invalid k (too large) returns NULL");
+    int non_existent = 999;
+    ASSERT(getRank(root, &non_existent, int_compare) == 0, "Non-existent element rank is 0");
 
-    int nonExistentVal = 999;
-    int invalidRank = getRank(root, &nonExistentVal, int_compare);
-    ASSERT(invalidRank == 0, "Rank of non-existent element is 0");
-
+    free(range_result.results);
     freeAVLTree(root, int_free);
+    free(arr);
 }
 
-// print test result summary
-void printTestSummary()
+// === Test Summary and Main ===
+static void print_summary(void)
 {
-    printf("\n=== Test Result Summary ===\n");
-    printf("Total tests: %d\n", test_result.total_tests);
-    printf("Passed: %d\n", test_result.passed_tests);
-    printf("Failed: %d\n", test_result.failed_tests);
-    printf("Success rate: %.1f%%\n",
-           test_result.total_tests > 0 ? (100.0 * test_result.passed_tests / test_result.total_tests) : 0.0);
+    printf("\n=== Test Summary ===\n");
+    printf("Total: %d | Passed: %d | Failed: %d\n",
+           stats.total, stats.passed, stats.failed);
+    printf("Success Rate: %.1f%%\n",
+           stats.total > 0 ? (100.0 * stats.passed / stats.total) : 0.0);
 
-    if (test_result.failed_tests == 0)
+    if (stats.failed == 0)
         printf("🎉 All tests passed!\n");
     else
-        printf("❌ %d tests failed\n", test_result.failed_tests);
+        printf("❌ %d test(s) failed\n", stats.failed);
 }
 
-int main()
+int main(void)
 {
-    printf("AVL Tree Test Program\n");
-    printf("================================\n");
+    printf("AVL Tree Test Suite\n");
+    printf("===================\n");
 
-    // run all tests
-    testBasicOperations();
-    testRotations();
-    testEdgeCases();
-    testStress();
-    testUtilities();
-    testQueryFunctions();
+    // Run all test suites
+    RUN_TEST(basic_operations);
+    RUN_TEST(rotations);
+    RUN_TEST(edge_cases);
+    RUN_TEST(stress_performance);
+    RUN_TEST(utility_functions);
+    RUN_TEST(queries);
 
-    // print result summary
-    printTestSummary();
+    // Print final results
+    print_summary();
 
-    return test_result.failed_tests == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    return stats.failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
